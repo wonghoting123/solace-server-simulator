@@ -24,10 +24,6 @@ dependencies {
     // JSON processing
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     
-    // WebJars for JavaScript libraries
-    implementation 'org.webjars:sockjs-client:1.5.1'
-    implementation 'org.webjars:stomp-websocket:2.3.4'
-    
     // Lombok for cleaner code
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
