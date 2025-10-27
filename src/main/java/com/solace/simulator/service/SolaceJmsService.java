@@ -32,6 +32,9 @@ public class SolaceJmsService {
         connectionFactory.setUsername(config.getUsername());
         connectionFactory.setPassword(config.getPassword());
 
+        connectionFactory.setSSLValidateCertificate(false);
+        connectionFactory.setSSLHostnameVerificationEnabled(false);
+
         connection = connectionFactory.createConnection();
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         connection.start();
