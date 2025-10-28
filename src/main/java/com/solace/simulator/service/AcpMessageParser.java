@@ -94,7 +94,9 @@ public class AcpMessageParser {
     
     /**
      * Read an unsigned 32-bit integer in little-endian byte order
+     * Note: Currently unused but available for future ACP message field types that require 32-bit values
      */
+    @SuppressWarnings("unused")
     private long readUInt32LE(byte[] bytes, int offset) {
         if (offset + 3 >= bytes.length) {
             throw new IndexOutOfBoundsException("Not enough bytes to read UInt32");

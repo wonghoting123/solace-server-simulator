@@ -82,13 +82,14 @@ class AcpMessageParserTest {
     @Test
     void testLittleEndianConversion() {
         // Test specific little-endian conversion
-        // 0x0A 0xF3 in memory should be read as 0xF30A = 62218 in big-endian
-        // but as 0x0AF3 = 2803 in little-endian
+        // Hex input "0AF3" represents bytes [0x0A, 0xF3] in memory order
+        // In little-endian, these bytes are read with least significant byte first
+        // So: 0x0A (LSB) | 0xF3 (MSB) << 8 = 0xF30A = 62218 decimal
         String hexInput = "0AF3";
         
         AcpMessage result = parser.parseHexToAcpMessage(hexInput);
         
-        // In little-endian, bytes 0x0A 0xF3 should be read as 0xF30A = 62218
+        // In little-endian, bytes [0x0A, 0xF3] should be read as 0xF30A = 62218
         assertEquals(62218, result.getFields().get("Field_0_1"));
     }
 }
