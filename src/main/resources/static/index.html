@@ -343,6 +343,42 @@
             <button onclick="unsubscribe()" class="btn-danger">Unsubscribe</button>
         </div>
 
+        <!-- ACP Message Mapper Panel -->
+        <div class="panel">
+            <h2>ACP Message Mapper</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                Parse hexadecimal byte messages into structured fields using little-endian byte order.
+            </p>
+            <div class="form-group">
+                <label for="acpHexInput">Hexadecimal Input:</label>
+                <textarea id="acpHexInput" placeholder="Enter hexadecimal string (e.g., F30A291408000101...)"></textarea>
+                <small style="color: #666;">
+                    Enter hex values with or without spaces. Example: F30A (0xF3 0x0A) = 2803 in little-endian
+                </small>
+            </div>
+            <button onclick="parseAcpMessage()" class="btn-success">Parse Message</button>
+            <button onclick="clearAcpResult()" class="btn-danger">Clear</button>
+            
+            <div id="acpResult" style="display: none; margin-top: 20px;">
+                <h3 style="color: #34495e; margin-bottom: 10px;">Parsed Result:</h3>
+                
+                <div class="form-group">
+                    <label>Raw Hexadecimal:</label>
+                    <div id="acpRawHex" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; word-break: break-all;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Binary Representation:</label>
+                    <div id="acpBinary" style="background-color: #fff3cd; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; max-height: 150px; overflow-y: auto;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Parsed Fields (Little-Endian):</label>
+                    <div id="acpFields" style="background-color: #d4edda; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Received Messages Panel -->
         <div class="panel">
             <h2>Received Messages</h2>
@@ -625,6 +661,85 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // ACP Message Parser Functions
+        function parseAcpMessage() {
+            const hexInput = document.getElementById('acpHexInput').value.trim();
+            
+            if (!hexInput) {
+                alert('Please enter a hexadecimal string');
+                return;
+            }
+            
+            fetch('/api/acp/parse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ hexString: hexInput })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    alert('Parse error: ' + data.message);
+                } else {
+                    displayAcpResult(data);
+                }
+            })
+            .catch(error => {
+                alert('Parse error: ' + error);
+            });
+        }
+
+        function displayAcpResult(acpMessage) {
+            // Display raw hex
+            document.getElementById('acpRawHex').textContent = acpMessage.rawHex;
+            
+            // Display binary string
+            const binary = acpMessage.binaryString;
+            const formattedBinary = binary.match(/.{1,8}/g).join(' ');
+            document.getElementById('acpBinary').textContent = formattedBinary;
+            
+            // Display parsed fields
+            const fieldsDiv = document.getElementById('acpFields');
+            fieldsDiv.innerHTML = '';
+            
+            const fieldsTable = document.createElement('table');
+            fieldsTable.style.width = '100%';
+            fieldsTable.style.borderCollapse = 'collapse';
+            
+            // Add header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr style="background-color: #3498db; color: white;">
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Field Name</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Value</th>
+                </tr>
+            `;
+            fieldsTable.appendChild(thead);
+            
+            // Add fields
+            const tbody = document.createElement('tbody');
+            for (const [key, value] of Object.entries(acpMessage.fields)) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">${escapeHtml(key)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace;">${escapeHtml(String(value))}</td>
+                `;
+                tbody.appendChild(row);
+            }
+            fieldsTable.appendChild(tbody);
+            
+            fieldsDiv.appendChild(fieldsTable);
+            
+            // Show result section
+            document.getElementById('acpResult').style.display = 'block';
+        }
+
+        function clearAcpResult() {
+            document.getElementById('acpHexInput').value = '';
+            document.getElementById('acpResult').style.display = 'none';
         }
 
         // Check connection status on load
