@@ -672,7 +672,8 @@
                 return;
             }
             
-            fetch('/api/acp/parse', {
+            // Use the new parse-complete endpoint that maps fields by message code
+            fetch('/api/acp/parse-complete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
