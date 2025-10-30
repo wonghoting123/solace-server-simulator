@@ -4,6 +4,7 @@ import com.solace.simulator.model.AcpMessage;
 import com.solace.simulator.model.AcpMessageRequest;
 import com.solace.simulator.service.AcpMessageParser;
 import com.solace.simulator.service.AcpMessageHeaderParser;
+import com.solace.simulator.service.AcpMessageDetailedParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,9 @@ public class AcpMessageController {
     
     @Autowired
     private AcpMessageHeaderParser acpMessageHeaderParser;
+    
+    @Autowired
+    private AcpMessageDetailedParser acpMessageDetailedParser;
     
     /**
      * Parse a hexadecimal string into an ACP message with mapped fields
@@ -69,6 +73,29 @@ public class AcpMessageController {
     }
     
     /**
+     * Parse ACP message with detailed field-by-field breakdown
+     * Shows binary representation, field names from spec, byte positions, and values
+     * 
+     * @param request Contains the hexadecimal string to parse
+     * @return Parsed ACP message with detailed field information
+     */
+    @PostMapping("/parse-detailed")
+    public ResponseEntity<?> parseDetailedMessage(@RequestBody AcpMessageRequest request) {
+        try {
+            if (request.getHexString() == null || request.getHexString().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(createErrorResponse("Hex string is required"));
+            }
+            
+            AcpMessage acpMessage = acpMessageDetailedParser.parseWithDetails(request.getHexString());
+            return ResponseEntity.ok(acpMessage);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(createErrorResponse("Failed to parse message: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * Get information about ACP message structure and parsing rules
      * @return Information about the ACP message format
      */
@@ -84,6 +111,7 @@ public class AcpMessageController {
         Map<String, String> endpoints = new HashMap<>();
         endpoints.put("POST /api/acp/parse", "Basic parser - parses hex as 16-bit fields");
         endpoints.put("POST /api/acp/parse-complete", "Complete parser - parses header + message code-based field mapping");
+        endpoints.put("POST /api/acp/parse-detailed", "Detailed parser - shows binary, field names, byte positions, and values");
         endpoints.put("GET /api/acp/info", "Get API information");
         info.put("endpoints", endpoints);
         

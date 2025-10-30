@@ -672,8 +672,8 @@
                 return;
             }
             
-            // Use the new parse-complete endpoint that maps fields by message code
-            fetch('/api/acp/parse-complete', {
+            // Use the new parse-detailed endpoint that shows binary, field names, and byte positions
+            fetch('/api/acp/parse-detailed', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -702,37 +702,71 @@
             const formattedBinary = binary.match(/.{1,8}/g).join(' ');
             document.getElementById('acpBinary').textContent = formattedBinary;
             
-            // Display parsed fields
+            // Display parsed fields with detailed breakdown
             const fieldsDiv = document.getElementById('acpFields');
             fieldsDiv.innerHTML = '';
             
-            const fieldsTable = document.createElement('table');
-            fieldsTable.style.width = '100%';
-            fieldsTable.style.borderCollapse = 'collapse';
-            
-            // Add header
-            const thead = document.createElement('thead');
-            thead.innerHTML = `
-                <tr style="background-color: #3498db; color: white;">
-                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Field Name</th>
-                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Value</th>
-                </tr>
-            `;
-            fieldsTable.appendChild(thead);
-            
-            // Add fields
-            const tbody = document.createElement('tbody');
-            for (const [key, value] of Object.entries(acpMessage.fields)) {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">${escapeHtml(key)}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace;">${escapeHtml(String(value))}</td>
+            if (acpMessage.fieldDetails && acpMessage.fieldDetails.length > 0) {
+                // Display in the format: binary - field name (bytes X-Y, value: Z)
+                const detailsList = document.createElement('div');
+                detailsList.style.fontFamily = "'Courier New', monospace";
+                detailsList.style.fontSize = '13px';
+                detailsList.style.lineHeight = '1.8';
+                detailsList.style.whiteSpace = 'pre-wrap';
+                
+                acpMessage.fieldDetails.forEach(field => {
+                    const fieldLine = document.createElement('div');
+                    fieldLine.style.marginBottom = '8px';
+                    fieldLine.style.paddingLeft = '10px';
+                    
+                    // Format: binary - field name (bytes X-Y, value: Z)
+                    const byteRange = field.startByte === field.endByte ? 
+                        `byte ${field.startByte}` : 
+                        `bytes ${field.startByte}-${field.endByte}`;
+                    
+                    fieldLine.innerHTML = `
+                        <span style="color: #2c5282;">${escapeHtml(field.binaryRepresentation)}</span>
+                        <span style="color: #666;"> - </span>
+                        <span style="color: #d97706; font-weight: bold;">${escapeHtml(field.fieldName)}</span>
+                        <span style="color: #666;"> (${byteRange}, value: </span>
+                        <span style="color: #059669; font-weight: bold;">${escapeHtml(String(field.value))}</span>
+                        <span style="color: #666;">)</span>
+                    `;
+                    
+                    detailsList.appendChild(fieldLine);
+                });
+                
+                fieldsDiv.appendChild(detailsList);
+            } else {
+                // Fallback to table view if fieldDetails not available
+                const fieldsTable = document.createElement('table');
+                fieldsTable.style.width = '100%';
+                fieldsTable.style.borderCollapse = 'collapse';
+                
+                // Add header
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Field Name</th>
+                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Value</th>
+                    </tr>
                 `;
-                tbody.appendChild(row);
+                fieldsTable.appendChild(thead);
+                
+                // Add fields
+                const tbody = document.createElement('tbody');
+                for (const [key, value] of Object.entries(acpMessage.fields)) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">${escapeHtml(key)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace;">${escapeHtml(String(value))}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+                fieldsTable.appendChild(tbody);
+                
+                fieldsDiv.appendChild(fieldsTable);
             }
-            fieldsTable.appendChild(tbody);
-            
-            fieldsDiv.appendChild(fieldsTable);
             
             // Show result section
             document.getElementById('acpResult').style.display = 'block';

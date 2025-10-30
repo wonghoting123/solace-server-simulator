@@ -1,6 +1,8 @@
 package com.solace.simulator.model;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -11,9 +13,11 @@ public class AcpMessage {
     private String rawHex;
     private String binaryString;
     private Map<String, Object> fields;
+    private List<AcpMessageFieldDetail> fieldDetails;
     
     public AcpMessage() {
         this.fields = new LinkedHashMap<>();
+        this.fieldDetails = new ArrayList<>();
     }
     
     public String getRawHex() {
@@ -42,5 +46,17 @@ public class AcpMessage {
     
     public void addField(String name, Object value) {
         this.fields.put(name, value);
+    }
+    
+    public List<AcpMessageFieldDetail> getFieldDetails() {
+        return fieldDetails;
+    }
+    
+    public void setFieldDetails(List<AcpMessageFieldDetail> fieldDetails) {
+        this.fieldDetails = fieldDetails;
+    }
+    
+    public void addFieldDetail(AcpMessageFieldDetail fieldDetail) {
+        this.fieldDetails.add(fieldDetail);
     }
 }
