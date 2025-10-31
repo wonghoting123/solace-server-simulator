@@ -672,8 +672,8 @@
                 return;
             }
             
-            // Use the new parse-detailed endpoint that shows binary, field names, and byte positions
-            fetch('/api/acp/parse-detailed', {
+            // Use the new parse-spec endpoint that shows table format with all field details
+            fetch('/api/acp/parse-spec', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -702,12 +702,53 @@
             const formattedBinary = binary.match(/.{1,8}/g).join(' ');
             document.getElementById('acpBinary').textContent = formattedBinary;
             
-            // Display parsed fields with detailed breakdown
+            // Display parsed fields in table format
             const fieldsDiv = document.getElementById('acpFields');
             fieldsDiv.innerHTML = '';
             
-            if (acpMessage.fieldDetails && acpMessage.fieldDetails.length > 0) {
-                // Display in the format: binary - field name (bytes X-Y, value: Z)
+            if (acpMessage.parsedFields && acpMessage.parsedFields.length > 0) {
+                // Create table with: Data, Byte Position, Data Type, Size, Msg Data, Msg Data Value
+                const fieldsTable = document.createElement('table');
+                fieldsTable.style.width = '100%';
+                fieldsTable.style.borderCollapse = 'collapse';
+                fieldsTable.style.fontFamily = "'Arial', sans-serif";
+                fieldsTable.style.fontSize = '13px';
+                
+                // Add header
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr style="background-color: #3498db; color: white;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Data</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Byte Position</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Data Type</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Size</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Msg Data</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Msg Data Value</th>
+                    </tr>
+                `;
+                fieldsTable.appendChild(thead);
+                
+                // Add fields
+                const tbody = document.createElement('tbody');
+                acpMessage.parsedFields.forEach((field, idx) => {
+                    const row = document.createElement('tr');
+                    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                    row.style.backgroundColor = bgColor;
+                    row.innerHTML = `
+                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600; color: #2c5282;">${escapeHtml(field.data)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: left; font-family: 'Courier New', monospace;">${escapeHtml(field.bytePosition)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; color: #666;">${escapeHtml(field.dataType)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${escapeHtml(field.size)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace; font-size: 11px; color: #0066cc;">${escapeHtml(field.msgData)}</td>
+                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace; font-weight: bold; color: #059669;">${escapeHtml(field.msgDataValue)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                fieldsTable.appendChild(tbody);
+                
+                fieldsDiv.appendChild(fieldsTable);
+            } else if (acpMessage.fieldDetails && acpMessage.fieldDetails.length > 0) {
+                // Fallback to field details format
                 const detailsList = document.createElement('div');
                 detailsList.style.fontFamily = "'Courier New', monospace";
                 detailsList.style.fontSize = '13px';
@@ -738,7 +779,7 @@
                 
                 fieldsDiv.appendChild(detailsList);
             } else {
-                // Fallback to table view if fieldDetails not available
+                // Final fallback to simple table
                 const fieldsTable = document.createElement('table');
                 fieldsTable.style.width = '100%';
                 fieldsTable.style.borderCollapse = 'collapse';

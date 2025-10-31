@@ -4,6 +4,8 @@
 
 This document describes the Application Communication Protocol (ACP) message format used for communication between BCS (Betting Computer System) and ACP systems. All messages follow a common structure with a mandatory header and optional message-specific content.
 
+**Source:** This documentation is extracted from `acp_message.htm` which provides detailed specifications for all message interfaces.
+
 ## Message Structure
 
 ### Common Message Header
@@ -169,11 +171,32 @@ The `AcpMessageParser` service provides:
 
 ### REST Endpoints
 
-- `POST /api/acp/parse` - Parse hex string to ACP message fields
-- `GET /api/acp/info` - Get parser information
+- `POST /api/acp/parse` - Basic parser: Generic 16-bit field parsing
+- `POST /api/acp/parse-complete` - Header parser: Named header fields + optional content
+- `POST /api/acp/parse-detailed` - Detailed parser: Binary + field names + byte positions (line format)
+- `POST /api/acp/parse-spec` - **Specification-based parser: Table format with Data, Byte Position, Data Type, Size, Msg Data, Msg Data Value**
+- `GET /api/acp/info` - Get API information
+
+### Table Format Output (parse-spec endpoint)
+
+The specification-based parser returns data in a table format matching the structure from `acp_message.htm`:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| Data | Field name from specification | "Message code" |
+| Byte Position | Byte range or single byte | "0-1", "2" |
+| Data Type | Field data type | "Unsigned Integer", "String" |
+| Size | Size in bytes | "2", "1" |
+| Msg Data | Binary representation | "11110011 00001010" |
+| Msg Data Value | Decoded value (little-endian) | "2803" |
 
 ## References
 
-- Original specification: `acp_message.rtf`
-- Implementation: `src/main/java/com/solace/simulator/service/AcpMessageParser.java`
+- Original specification: `acp_message.rtf` (converted to `acp_message.htm`)
+- Implementation:
+  - Basic parser: `src/main/java/com/solace/simulator/service/AcpMessageParser.java`
+  - Header parser: `src/main/java/com/solace/simulator/service/AcpMessageHeaderParser.java`
+  - Detailed parser: `src/main/java/com/solace/simulator/service/AcpMessageDetailedParser.java`
+  - Spec-based parser: `src/main/java/com/solace/simulator/service/AcpMessageSpecParser.java`
 - Models: `src/main/java/com/solace/simulator/model/`
+- Documentation: `docs/ACP_MESSAGE_FORMAT.md`

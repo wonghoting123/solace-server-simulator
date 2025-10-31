@@ -14,10 +14,12 @@ public class AcpMessage {
     private String binaryString;
     private Map<String, Object> fields;
     private List<AcpMessageFieldDetail> fieldDetails;
+    private List<AcpParsedField> parsedFields;  // New: For table format display
     
     public AcpMessage() {
         this.fields = new LinkedHashMap<>();
         this.fieldDetails = new ArrayList<>();
+        this.parsedFields = new ArrayList<>();
     }
     
     public String getRawHex() {
@@ -58,5 +60,17 @@ public class AcpMessage {
     
     public void addFieldDetail(AcpMessageFieldDetail fieldDetail) {
         this.fieldDetails.add(fieldDetail);
+    }
+    
+    public List<AcpParsedField> getParsedFields() {
+        return parsedFields;
+    }
+    
+    public void setParsedFields(List<AcpParsedField> parsedFields) {
+        this.parsedFields = parsedFields;
+    }
+    
+    public void addParsedField(AcpParsedField parsedField) {
+        this.parsedFields.add(parsedField);
     }
 }
