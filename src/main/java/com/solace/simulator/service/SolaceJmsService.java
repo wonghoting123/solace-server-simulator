@@ -33,7 +33,7 @@ public class SolaceJmsService {
         connectionFactory.setPassword(config.getPassword());
 
         connectionFactory.setSSLValidateCertificate(false);
-        connectionFactory.setSSLHostnameVerificationEnabled(false);
+        // Note: setSSLHostnameVerificationEnabled is not available in this version of Solace JMS
 
         connection = connectionFactory.createConnection();
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
