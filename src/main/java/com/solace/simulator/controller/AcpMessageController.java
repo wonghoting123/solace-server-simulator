@@ -6,6 +6,7 @@ import com.solace.simulator.service.AcpMessageParser;
 import com.solace.simulator.service.AcpMessageHeaderParser;
 import com.solace.simulator.service.AcpMessageDetailedParser;
 import com.solace.simulator.service.AcpMessageSpecParser;
+import com.solace.simulator.service.AcpMessageEnhancedParser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,9 @@ public class AcpMessageController {
     
     @Autowired
     private AcpMessageSpecParser acpMessageSpecParser;
+    
+    @Autowired
+    private AcpMessageEnhancedParser acpMessageEnhancedParser;
     
     /**
      * Parse a hexadecimal string into an ACP message with mapped fields
@@ -123,6 +127,32 @@ public class AcpMessageController {
     }
     
     /**
+     * Parse ACP message with enhanced parsing:
+     * - Supports BCS-specific header format (56 bytes with packet fields)
+     * - Supports standard ACP header format (52 bytes)
+     * - Message-specific body parsing based on message code
+     * - Table format display with all field details
+     * 
+     * @param request Contains the hexadecimal string to parse
+     * @return Parsed ACP message with enhanced header and body parsing
+     */
+    @PostMapping("/parse-enhanced")
+    public ResponseEntity<?> parseEnhanced(@RequestBody AcpMessageRequest request) {
+        try {
+            if (request.getHexString() == null || request.getHexString().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(createErrorResponse("Hex string is required"));
+            }
+            
+            AcpMessage acpMessage = acpMessageEnhancedParser.parseEnhanced(request.getHexString());
+            return ResponseEntity.ok(acpMessage);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(createErrorResponse("Failed to parse message: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * Get information about ACP message structure and parsing rules
      * @return Information about the ACP message format
      */
@@ -140,6 +170,7 @@ public class AcpMessageController {
         endpoints.put("POST /api/acp/parse-complete", "Complete parser - parses header + message code-based field mapping");
         endpoints.put("POST /api/acp/parse-detailed", "Detailed parser - shows binary, field names, byte positions, and values");
         endpoints.put("POST /api/acp/parse-spec", "Spec-based parser - table format with Data, Byte Position, Data Type, Size, Msg Data, Msg Data Value");
+        endpoints.put("POST /api/acp/parse-enhanced", "Enhanced parser - BCS/ACP header support + message-specific body parsing");
         endpoints.put("GET /api/acp/info", "Get API information");
         info.put("endpoints", endpoints);
         

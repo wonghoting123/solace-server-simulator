@@ -672,8 +672,8 @@
                 return;
             }
             
-            // Use the new parse-spec endpoint that shows table format with all field details
-            fetch('/api/acp/parse-spec', {
+            // Use the enhanced parser that supports BCS/ACP headers and message-specific body parsing
+            fetch('/api/acp/parse-enhanced', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
