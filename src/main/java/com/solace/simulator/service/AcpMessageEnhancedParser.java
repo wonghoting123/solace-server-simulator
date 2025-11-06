@@ -230,19 +230,26 @@ public class AcpMessageEnhancedParser {
         int offset = headerSize;
         int bodyEnd = bytes.length - 1; // Exclude checksum
         
-        switch (messageCode) {
-            case 2658:
-                // BCS-RT Request Account Info
-                parseMessage2658Body(fields, bytes, fullBinary, offset, bodyEnd);
-                break;
-            case 2659:
-                // BCS-RT Reply Account Info
-                parseMessage2659Body(fields, bytes, fullBinary, offset, bodyEnd);
-                break;
-            default:
-                // Generic parsing for unknown messages
-                parseGenericBody(fields, bytes, fullBinary, offset, bodyEnd);
-                break;
+        // Only parse body for message 2658, all others show as single body field
+        if (messageCode == 2658) {
+            // BCS-RT Request Account Info
+            parseMessage2658Body(fields, bytes, fullBinary, offset, bodyEnd);
+        } else {
+            // For all other messages, display the entire body as one field
+            if (offset < bodyEnd) {
+                String msgData = extractBinaryForBytes(fullBinary, offset, bodyEnd - 1);
+                String hexData = bytesToHexString(bytes, offset, bodyEnd - 1);
+                
+                AcpParsedField bodyField = new AcpParsedField(
+                    "Message body",                                    // Data
+                    String.format("%d-%d", offset, bodyEnd - 1),      // Byte Position
+                    "Binary",                                          // Data Type
+                    String.valueOf(bodyEnd - offset),                 // Size
+                    msgData,                                           // Msg Data (binary)
+                    hexData                                            // Msg Data Value (hex)
+                );
+                fields.add(bodyField);
+            }
         }
     }
     
@@ -400,38 +407,7 @@ public class AcpMessageEnhancedParser {
         }
     }
     
-    /**
-     * Parse message 2659 body (BCS-RT Reply Account Info)
-     */
-    private void parseMessage2659Body(List<AcpParsedField> fields, byte[] bytes, 
-                                       String fullBinary, int offset, int bodyEnd) {
-        // TODO: Implement message 2659 body parsing
-        // For now, use generic parsing
-        parseGenericBody(fields, bytes, fullBinary, offset, bodyEnd);
-    }
-    
-    /**
-     * Generic body parsing for unknown message types
-     */
-    private void parseGenericBody(List<AcpParsedField> fields, byte[] bytes, 
-                                   String fullBinary, int offset, int bodyEnd) {
-        int fieldNum = 0;
-        while (offset + 3 < bodyEnd) {
-            addField(fields, "Body field " + fieldNum, String.format("%d-%d", offset, offset + 3), 
-                     "Unsigned Integer", "4", bytes, fullBinary, offset, offset + 3, 
-                     readUInt32LE(bytes, offset));
-            offset += 4;
-            fieldNum++;
-        }
-        
-        // Handle remaining bytes
-        while (offset < bodyEnd) {
-            addField(fields, "Body byte " + offset, String.valueOf(offset), 
-                     "Unsigned Integer", "1", bytes, fullBinary, offset, offset, 
-                     bytes[offset] & 0xFF);
-            offset++;
-        }
-    }
+
     
     // Utility methods
     
@@ -547,5 +523,13 @@ public class AcpMessageEnhancedParser {
             binary.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
         }
         return binary.toString();
+    }
+    
+    private String bytesToHexString(byte[] bytes, int startByte, int endByte) {
+        StringBuilder hex = new StringBuilder();
+        for (int i = startByte; i <= endByte && i < bytes.length; i++) {
+            hex.append(String.format("%02X", bytes[i]));
+        }
+        return hex.toString();
     }
 }

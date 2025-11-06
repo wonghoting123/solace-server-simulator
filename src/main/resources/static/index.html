@@ -14,12 +14,56 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f2f5;
-            padding: 20px;
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background-color: #2c3e50;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .navbar-nav {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav-link {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-link:hover {
+            background-color: #34495e;
+        }
+
+        .nav-link.active {
+            background-color: #3498db;
         }
 
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 20px;
         }
 
         h1 {
@@ -246,6 +290,17 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">Solace Server Simulator</a>
+            <ul class="navbar-nav">
+                <li><a href="/" class="nav-link active">Home</a></li>
+                <li><a href="/acp/message/decode.html" class="nav-link">ACP Message Decoder</a></li>
+            </ul>
+        </div>
+    </nav>
+
     <div class="container">
         <h1>Solace Server Simulator</h1>
 
@@ -341,42 +396,6 @@
             </div>
             <button onclick="subscribe()" class="btn-success">Subscribe</button>
             <button onclick="unsubscribe()" class="btn-danger">Unsubscribe</button>
-        </div>
-
-        <!-- ACP Message Mapper Panel -->
-        <div class="panel">
-            <h2>ACP Message Mapper</h2>
-            <p style="color: #666; margin-bottom: 15px;">
-                Parse hexadecimal byte messages into structured fields using little-endian byte order.
-            </p>
-            <div class="form-group">
-                <label for="acpHexInput">Hexadecimal Input:</label>
-                <textarea id="acpHexInput" placeholder="Enter hexadecimal string (e.g., F30A291408000101...)"></textarea>
-                <small style="color: #666;">
-                    Enter hex values with or without spaces. Example: F30A (0xF3 0x0A) = 2803 in little-endian
-                </small>
-            </div>
-            <button onclick="parseAcpMessage()" class="btn-success">Parse Message</button>
-            <button onclick="clearAcpResult()" class="btn-danger">Clear</button>
-            
-            <div id="acpResult" style="display: none; margin-top: 20px;">
-                <h3 style="color: #34495e; margin-bottom: 10px;">Parsed Result:</h3>
-                
-                <div class="form-group">
-                    <label>Raw Hexadecimal:</label>
-                    <div id="acpRawHex" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; word-break: break-all;"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Binary Representation:</label>
-                    <div id="acpBinary" style="background-color: #fff3cd; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; word-break: break-all; max-height: 150px; overflow-y: auto;"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label>Parsed Fields (Little-Endian):</label>
-                    <div id="acpFields" style="background-color: #d4edda; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></div>
-                </div>
-            </div>
         </div>
 
         <!-- Received Messages Panel -->
@@ -661,161 +680,6 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
-        }
-
-        // ACP Message Parser Functions
-        function parseAcpMessage() {
-            const hexInput = document.getElementById('acpHexInput').value.trim();
-            
-            if (!hexInput) {
-                alert('Please enter a hexadecimal string');
-                return;
-            }
-            
-            // Use the enhanced parser that supports BCS/ACP headers and message-specific body parsing
-            fetch('/api/acp/parse-enhanced', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ hexString: hexInput })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'error') {
-                    alert('Parse error: ' + data.message);
-                } else {
-                    displayAcpResult(data);
-                }
-            })
-            .catch(error => {
-                alert('Parse error: ' + error);
-            });
-        }
-
-        function displayAcpResult(acpMessage) {
-            // Display raw hex
-            document.getElementById('acpRawHex').textContent = acpMessage.rawHex;
-            
-            // Display binary string
-            const binary = acpMessage.binaryString;
-            const formattedBinary = binary.match(/.{1,8}/g).join(' ');
-            document.getElementById('acpBinary').textContent = formattedBinary;
-            
-            // Display parsed fields in table format
-            const fieldsDiv = document.getElementById('acpFields');
-            fieldsDiv.innerHTML = '';
-            
-            if (acpMessage.parsedFields && acpMessage.parsedFields.length > 0) {
-                // Create table with: Data, Byte Position, Data Type, Size, Msg Data, Msg Data Value
-                const fieldsTable = document.createElement('table');
-                fieldsTable.style.width = '100%';
-                fieldsTable.style.borderCollapse = 'collapse';
-                fieldsTable.style.fontFamily = "'Arial', sans-serif";
-                fieldsTable.style.fontSize = '13px';
-                
-                // Add header
-                const thead = document.createElement('thead');
-                thead.innerHTML = `
-                    <tr style="background-color: #3498db; color: white;">
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Data</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Byte Position</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Data Type</th>
-                        <th style="padding: 10px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Size</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Msg Data</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Msg Data Value</th>
-                    </tr>
-                `;
-                fieldsTable.appendChild(thead);
-                
-                // Add fields
-                const tbody = document.createElement('tbody');
-                acpMessage.parsedFields.forEach((field, idx) => {
-                    const row = document.createElement('tr');
-                    const bgColor = idx % 2 === 0 ? '#f9f9f9' : '#ffffff';
-                    row.style.backgroundColor = bgColor;
-                    row.innerHTML = `
-                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600; color: #2c5282;">${escapeHtml(field.data)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: left; font-family: 'Courier New', monospace;">${escapeHtml(field.bytePosition)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; color: #666;">${escapeHtml(field.dataType)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">${escapeHtml(field.size)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace; font-size: 11px; color: #0066cc;">${escapeHtml(field.msgData)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace; font-weight: bold; color: #059669;">${escapeHtml(field.msgDataValue)}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-                fieldsTable.appendChild(tbody);
-                
-                fieldsDiv.appendChild(fieldsTable);
-            } else if (acpMessage.fieldDetails && acpMessage.fieldDetails.length > 0) {
-                // Fallback to field details format
-                const detailsList = document.createElement('div');
-                detailsList.style.fontFamily = "'Courier New', monospace";
-                detailsList.style.fontSize = '13px';
-                detailsList.style.lineHeight = '1.8';
-                detailsList.style.whiteSpace = 'pre-wrap';
-                
-                acpMessage.fieldDetails.forEach(field => {
-                    const fieldLine = document.createElement('div');
-                    fieldLine.style.marginBottom = '8px';
-                    fieldLine.style.paddingLeft = '10px';
-                    
-                    // Format: binary - field name (bytes X-Y, value: Z)
-                    const byteRange = field.startByte === field.endByte ? 
-                        `byte ${field.startByte}` : 
-                        `bytes ${field.startByte}-${field.endByte}`;
-                    
-                    fieldLine.innerHTML = `
-                        <span style="color: #2c5282;">${escapeHtml(field.binaryRepresentation)}</span>
-                        <span style="color: #666;"> - </span>
-                        <span style="color: #d97706; font-weight: bold;">${escapeHtml(field.fieldName)}</span>
-                        <span style="color: #666;"> (${byteRange}, value: </span>
-                        <span style="color: #059669; font-weight: bold;">${escapeHtml(String(field.value))}</span>
-                        <span style="color: #666;">)</span>
-                    `;
-                    
-                    detailsList.appendChild(fieldLine);
-                });
-                
-                fieldsDiv.appendChild(detailsList);
-            } else {
-                // Final fallback to simple table
-                const fieldsTable = document.createElement('table');
-                fieldsTable.style.width = '100%';
-                fieldsTable.style.borderCollapse = 'collapse';
-                
-                // Add header
-                const thead = document.createElement('thead');
-                thead.innerHTML = `
-                    <tr style="background-color: #3498db; color: white;">
-                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Field Name</th>
-                        <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Value</th>
-                    </tr>
-                `;
-                fieldsTable.appendChild(thead);
-                
-                // Add fields
-                const tbody = document.createElement('tbody');
-                for (const [key, value] of Object.entries(acpMessage.fields)) {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td style="padding: 8px; border: 1px solid #ddd; font-weight: 600;">${escapeHtml(key)}</td>
-                        <td style="padding: 8px; border: 1px solid #ddd; font-family: 'Courier New', monospace;">${escapeHtml(String(value))}</td>
-                    `;
-                    tbody.appendChild(row);
-                }
-                fieldsTable.appendChild(tbody);
-                
-                fieldsDiv.appendChild(fieldsTable);
-            }
-            
-            // Show result section
-            document.getElementById('acpResult').style.display = 'block';
-        }
-
-        function clearAcpResult() {
-            document.getElementById('acpHexInput').value = '';
-            document.getElementById('acpResult').style.display = 'none';
         }
 
         // Check connection status on load
