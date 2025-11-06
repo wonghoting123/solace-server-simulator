@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handshake Simulation - Solace Server Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background-color: #2c3e50;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .navbar-nav {
+            display: flex;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav-link {
+            color: #ecf0f1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-link:hover {
+            background-color: #34495e;
+        }
+
+        .nav-link.active {
+            background-color: #3498db;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            color: #34495e;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .alert-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .simulation-list {
+            margin-top: 20px;
+        }
+
+        .simulation-item {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .simulation-info {
+            flex: 1;
+        }
+
+        .simulation-info h3 {
+            color: #2c3e50;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .simulation-info p {
+            color: #666;
+            font-size: 0.9em;
+            margin: 3px 0;
+        }
+
+        .simulation-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-running {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .status-stopped {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .info-table th,
+        .info-table td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #dee2e6;
+        }
+
+        .info-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <a href="/" class="navbar-brand">Solace Server Simulator</a>
+            <ul class="navbar-nav">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/acp/message/decode.html" class="nav-link">ACP Message Decoder</a></li>
+                <li><a href="/ap/message/handshake.html" class="nav-link active">Handshake Simulation</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Handshake Simulation (AP & BCS)</h1>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer"></div>
+
+        <!-- Start Simulation Panel -->
+        <div class="panel">
+            <h2>Start Handshake Simulation</h2>
+            <div class="form-group">
+                <label for="sourceSystem">Source System</label>
+                <select id="sourceSystem">
+                    <option value="">Select a source system...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="businessDate">Business Date (YYYY-MM-DD)</label>
+                <input type="date" id="businessDate">
+            </div>
+            <button id="startButton" class="btn-success">Start Simulation</button>
+        </div>
+
+        <!-- Source System Information -->
+        <div class="panel">
+            <h2>Source System Information</h2>
+            <table class="info-table">
+                <thead>
+                    <tr>
+                        <th>Source System</th>
+                        <th>System Number</th>
+                        <th>Destination System Number</th>
+                        <th>Incoming Queue</th>
+                        <th>Outgoing Topic</th>
+                    </tr>
+                </thead>
+                <tbody id="sourceSystemTable">
+                    <tr>
+                        <td colspan="5" class="empty-state">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Active Simulations Panel -->
+        <div class="panel">
+            <h2>Active Simulations</h2>
+            <div id="simulationList" class="simulation-list">
+                <div class="empty-state">No active simulations</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/sockjs.min.js"></script>
+    <script src="/js/stomp.min.js"></script>
+    <script>
+        let stompClient = null;
+        let sourceSystems = [];
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSourceSystems();
+            loadActiveSimulations();
+            connectWebSocket();
+            
+            // Set today's date as default
+            document.getElementById('businessDate').valueAsDate = new Date();
+
+            // Event listeners
+            document.getElementById('startButton').addEventListener('click', startSimulation);
+        });
+
+        // Load source systems
+        function loadSourceSystems() {
+            fetch('/api/handshake/source-systems')
+                .then(response => response.json())
+                .then(data => {
+                    sourceSystems = data;
+                    populateSourceSystemDropdown(data);
+                    populateSourceSystemTable(data);
+                })
+                .catch(error => {
+                    console.error('Error loading source systems:', error);
+                    showAlert('Failed to load source systems', 'error');
+                });
+        }
+
+        // Populate source system dropdown
+        function populateSourceSystemDropdown(systems) {
+            const select = document.getElementById('sourceSystem');
+            select.innerHTML = '<option value="">Select a source system...</option>';
+            systems.forEach(system => {
+                const option = document.createElement('option');
+                option.value = system.name;
+                option.textContent = system.displayName;
+                select.appendChild(option);
+            });
+        }
+
+        // Populate source system information table
+        function populateSourceSystemTable(systems) {
+            const tbody = document.getElementById('sourceSystemTable');
+            tbody.innerHTML = '';
+            systems.forEach(system => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${system.displayName}</td>
+                    <td>${system.systemNumber}</td>
+                    <td>${system.destinationSystemNumber}</td>
+                    <td><code>${system.incomingQueue}</code></td>
+                    <td><code>${system.outgoingTopic}</code></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Load active simulations
+        function loadActiveSimulations() {
+            fetch('/api/handshake/list')
+                .then(response => response.json())
+                .then(data => {
+                    displaySimulations(data);
+                })
+                .catch(error => {
+                    console.error('Error loading simulations:', error);
+                });
+        }
+
+        // Display simulations
+        function displaySimulations(simulations) {
+            const container = document.getElementById('simulationList');
+            
+            if (!simulations || simulations.length === 0) {
+                container.innerHTML = '<div class="empty-state">No active simulations</div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            simulations.forEach(simulation => {
+                const div = document.createElement('div');
+                div.className = 'simulation-item';
+                
+                const startTime = new Date(simulation.startTime).toLocaleString();
+                
+                div.innerHTML = `
+                    <div class="simulation-info">
+                        <h3>${simulation.sourceSystem.displayName}</h3>
+                        <p>Business Date: ${simulation.businessDate}</p>
+                        <p>Started: ${startTime}</p>
+                        <p>Status: <span class="status-badge status-${simulation.status.toLowerCase()}">${simulation.status}</span></p>
+                    </div>
+                    <div class="simulation-actions">
+                        <button class="btn-danger" onclick="stopSimulation('${simulation.sourceSystem.name}')">Stop</button>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        // Start simulation
+        function startSimulation() {
+            const sourceSystem = document.getElementById('sourceSystem').value;
+            const businessDate = document.getElementById('businessDate').value;
+
+            if (!sourceSystem) {
+                showAlert('Please select a source system', 'error');
+                return;
+            }
+
+            if (!businessDate) {
+                showAlert('Please provide a business date', 'error');
+                return;
+            }
+
+            const request = {
+                sourceSystem: sourceSystem,
+                businessDate: businessDate
+            };
+
+            fetch('/api/handshake/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(request)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showAlert('Handshake simulation started successfully', 'success');
+                    loadActiveSimulations();
+                } else {
+                    showAlert(data.message || 'Failed to start simulation', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting simulation:', error);
+                showAlert('Failed to start simulation', 'error');
+            });
+        }
+
+        // Stop simulation
+        function stopSimulation(sourceSystem) {
+            if (!confirm('Are you sure you want to stop this simulation?')) {
+                return;
+            }
+
+            fetch('/api/handshake/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ sourceSystem: sourceSystem })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showAlert('Handshake simulation stopped', 'success');
+                    loadActiveSimulations();
+                } else {
+                    showAlert(data.message || 'Failed to stop simulation', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping simulation:', error);
+                showAlert('Failed to stop simulation', 'error');
+            });
+        }
+
+        // Show alert message
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            container.innerHTML = '';
+            container.appendChild(alert);
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            
+            stompClient.connect({}, function(frame) {
+                console.log('Connected to WebSocket');
+                
+                // Subscribe to handshake updates
+                stompClient.subscribe('/topic/handshake', function(message) {
+                    const simulations = JSON.parse(message.body);
+                    displaySimulations(simulations);
+                });
+            }, function(error) {
+                console.error('WebSocket error:', error);
+            });
+        }
+    </script>
+</body>
+</html>

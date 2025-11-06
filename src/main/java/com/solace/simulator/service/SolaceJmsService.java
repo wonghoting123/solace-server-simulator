@@ -203,4 +203,8 @@ public class SolaceJmsService {
     private String stringToHex(String str) {
         return bytesToHex(str.getBytes());
     }
+
+    public Session getSession() {
+        return session;
+    }
 }
