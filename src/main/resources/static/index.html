@@ -368,13 +368,11 @@
                 </small>
             </div>
             <div class="form-group">
-                <label>Custom Headers:</label>
-                <div class="header-input">
-                    <input type="text" id="headerKey" placeholder="Header Key">
-                    <input type="text" id="headerValue" placeholder="Header Value">
-                    <button onclick="addHeader()">Add Header</button>
-                </div>
-                <div id="headerList" class="header-list" style="display: none;"></div>
+                <label for="headersTextarea">Custom Headers (one per line, format: key: value):</label>
+                <textarea id="headersTextarea" rows="10" placeholder="destination_system_number: 17&#10;sender_hostname: BADEV23&#10;Solace_JMS_Prop_IS_Reply_Message: false&#10;sender_systemcode: BCSBA"></textarea>
+                <small style="color: #666;">
+                    Enter headers in the format "key: value", one per line.
+                </small>
             </div>
             <button onclick="sendMessage()" class="btn-success">Send Message</button>
         </div>
@@ -414,7 +412,6 @@
     <script>
         let stompClient = null;
         let isConnectedToSolace = false;
-        let headers = {};
 
         // Initialize WebSocket connection
         function initWebSocket() {
@@ -434,41 +431,30 @@
             help.style.display = messageType === 'BYTE' ? 'block' : 'none';
         }
 
-        function addHeader() {
-            const key = document.getElementById('headerKey').value.trim();
-            const value = document.getElementById('headerValue').value.trim();
+        function parseHeadersFromTextarea() {
+            const headersText = document.getElementById('headersTextarea').value;
+            const headers = {};
             
-            if (key && value) {
-                headers[key] = value;
-                document.getElementById('headerKey').value = '';
-                document.getElementById('headerValue').value = '';
-                updateHeaderList();
+            if (!headersText.trim()) {
+                return headers;
             }
-        }
-
-        function removeHeader(key) {
-            delete headers[key];
-            updateHeaderList();
-        }
-
-        function updateHeaderList() {
-            const headerList = document.getElementById('headerList');
-            if (Object.keys(headers).length === 0) {
-                headerList.style.display = 'none';
-                return;
+            
+            const lines = headersText.split('\n');
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine) {
+                    const colonIndex = trimmedLine.indexOf(':');
+                    if (colonIndex > 0) {
+                        const key = trimmedLine.substring(0, colonIndex).trim();
+                        const value = trimmedLine.substring(colonIndex + 1).trim();
+                        if (key && value) {
+                            headers[key] = value;
+                        }
+                    }
+                }
             }
-
-            headerList.style.display = 'block';
-            headerList.innerHTML = '';
-            for (const [key, value] of Object.entries(headers)) {
-                const item = document.createElement('div');
-                item.className = 'header-item';
-                item.innerHTML = `
-                    <span><strong>${key}:</strong> ${value}</span>
-                    <button onclick="removeHeader('${key}')" class="btn-danger">Remove</button>
-                `;
-                headerList.appendChild(item);
-            }
+            
+            return headers;
         }
 
         function connect() {
@@ -547,7 +533,7 @@
                 messageType: document.getElementById('sendMessageType').value,
                 content: document.getElementById('sendContent').value,
                 replyTo: document.getElementById('sendReplyTo').value,
-                headers: headers
+                headers: parseHeadersFromTextarea()
             };
 
             fetch('/api/send', {

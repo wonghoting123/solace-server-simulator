@@ -100,13 +100,29 @@ public class HandshakeService {
             future.cancel(false);
         }
 
-        // Stop queue consumer
-        MessageConsumer consumer = queueConsumers.remove(simulationKey);
-        if (consumer != null) {
-            try {
-                consumer.close();
-            } catch (Exception e) {
-                // Ignore close errors
+        // Check if any other simulation is using the same queue before closing the consumer
+        String queueName = sourceSystem.getIncomingQueue();
+        String queueKey = "queue:" + queueName;
+        boolean queueStillInUse = false;
+        
+        for (HandshakeSimulation sim : activeSimulations.values()) {
+            if (!sim.getSourceSystem().name().equals(simulationKey) && 
+                sim.getSourceSystem().getIncomingQueue().equals(queueName)) {
+                queueStillInUse = true;
+                break;
+            }
+        }
+        
+        // Only close the queue consumer if no other simulation is using it
+        if (!queueStillInUse) {
+            MessageConsumer consumer = queueConsumers.remove(queueKey);
+            if (consumer != null) {
+                try {
+                    consumer.close();
+                    System.out.println("Closed consumer for queue: " + queueName);
+                } catch (Exception e) {
+                    // Ignore close errors
+                }
             }
         }
 
@@ -132,7 +148,16 @@ public class HandshakeService {
      */
     private void startMessageFlow1(SourceSystem sourceSystem, String businessDate, String simulationKey) throws Exception {
         Session session = solaceJmsService.getSession();
-        javax.jms.Queue queue = session.createQueue(sourceSystem.getIncomingQueue());
+        String queueName = sourceSystem.getIncomingQueue();
+        
+        // Check if we already have a consumer for this queue (for shared queues like real-time systems)
+        String queueKey = "queue:" + queueName;
+        if (queueConsumers.containsKey(queueKey)) {
+            System.out.println("Consumer already exists for queue: " + queueName);
+            return;
+        }
+        
+        javax.jms.Queue queue = session.createQueue(queueName);
         MessageConsumer consumer = session.createConsumer(queue);
 
         consumer.setMessageListener(message -> {
@@ -143,17 +168,29 @@ public class HandshakeService {
                     bytesMessage.readBytes(receivedBytes);
 
                     // Check if this is a handshake request (message code 322)
-                    if (receivedBytes.length >= 2) {
+                    if (receivedBytes.length >= 4) {
                         int messageCode = ((receivedBytes[1] & 0xFF) << 8) | (receivedBytes[0] & 0xFF);
                         
                         if (messageCode == 322) {
-                            // Send reply with message code 321
-                            byte[] replyBytes = createHandshakeReply(sourceSystem);
-                            sendHandshakeReply(sourceSystem, replyBytes);
+                            // Extract source and destination system numbers from the received message
+                            int receivedSourceSystem = receivedBytes[2] & 0xFF;
+                            int receivedDestinationSystem = receivedBytes[3] & 0xFF;
                             
-                            // Log to console
-                            System.out.println("Message Flow 1: Received 322 from " + sourceSystem.getDisplayName() + 
-                                             ", sent 321 reply");
+                            System.out.println("Message Flow 1: Received 322 - Source: " + receivedSourceSystem + 
+                                             ", Destination: " + receivedDestinationSystem);
+                            
+                            // Create reply with swapped source/destination
+                            byte[] replyBytes = createHandshakeReply(receivedDestinationSystem, receivedSourceSystem);
+                            
+                            // Find the correct outgoing topic based on the received system numbers
+                            String outgoingTopic = SourceSystem.findOutgoingTopic(receivedSourceSystem, receivedDestinationSystem);
+                            if (outgoingTopic != null) {
+                                sendHandshakeReply(outgoingTopic, replyBytes, receivedSourceSystem, receivedDestinationSystem);
+                                System.out.println("Message Flow 1: Sent 321 reply to topic: " + outgoingTopic);
+                            } else {
+                                System.err.println("Could not find outgoing topic for source=" + receivedSourceSystem + 
+                                                 ", dest=" + receivedDestinationSystem);
+                            }
                         }
                     }
                 }
@@ -163,7 +200,8 @@ public class HandshakeService {
             }
         });
 
-        queueConsumers.put(simulationKey, consumer);
+        queueConsumers.put(queueKey, consumer);
+        System.out.println("Created consumer for queue: " + queueName);
     }
 
     /**
@@ -230,7 +268,7 @@ public class HandshakeService {
      * Create handshake reply message (321)
      * Format: Message code (2), Source system (1), Destination system (1), Checksum (1)
      */
-    private byte[] createHandshakeReply(SourceSystem sourceSystem) {
+    private byte[] createHandshakeReply(int sourceSystemNumber, int destinationSystemNumber) {
         byte[] message = new byte[5];
         
         // Message code 321 (0x0141) - little endian
@@ -238,10 +276,10 @@ public class HandshakeService {
         message[1] = 0x01;
         
         // Source system number (BCS system)
-        message[2] = (byte) sourceSystem.getSystemNumber();
+        message[2] = (byte) sourceSystemNumber;
         
         // Destination system number (AGP system)
-        message[3] = (byte) sourceSystem.getDestinationSystemNumber();
+        message[3] = (byte) destinationSystemNumber;
         
         // Calculate checksum (XOR of bytes 0-3)
         byte checksum = 0;
@@ -288,21 +326,23 @@ public class HandshakeService {
     /**
      * Send handshake reply to topic
      */
-    private void sendHandshakeReply(SourceSystem sourceSystem, byte[] messageBytes) throws Exception {
+    private void sendHandshakeReply(String topicName, byte[] messageBytes, int sourceSystemNumber, int destinationSystemNumber) throws Exception {
         Session session = solaceJmsService.getSession();
-        Topic topic = session.createTopic(sourceSystem.getOutgoingTopic());
+        Topic topic = session.createTopic(topicName);
         MessageProducer producer = session.createProducer(topic);
         
         BytesMessage message = session.createBytesMessage();
         message.writeBytes(messageBytes);
         
+        // Extract event_prefix_topic from the full topic name
+        String eventPrefixTopic = topicName.substring(0, topicName.lastIndexOf("/"));
+        
         // Set headers
-        message.setIntProperty("destination_system_number", sourceSystem.getDestinationSystemNumber());
+        message.setIntProperty("destination_system_number", destinationSystemNumber);
         message.setStringProperty("sender_hostname", "BADEV23");
         message.setBooleanProperty("Solace_JMS_Prop_IS_Reply_Message", false);
         message.setStringProperty("sender_systemcode", "BCSBA");
-        message.setStringProperty("event_prefix_topic", 
-            "hk/g/inct/ipc/01/upd/bcs_ba/brc_opr/" + sourceSystem.getDestinationSystemNumber() + "/" + sourceSystem.getSystemNumber());
+        message.setStringProperty("event_prefix_topic", eventPrefixTopic);
         message.setBooleanProperty("JMS_Solace_MsgDiscardIndication", false);
         message.setBooleanProperty("JMS_Solace_DeliverToOne", false);
         message.setIntProperty("JMSXDeliveryCount", 1);
@@ -310,7 +350,7 @@ public class HandshakeService {
         message.setBooleanProperty("JMS_Solace_ElidingEligible", false);
         message.setBooleanProperty("JMS_Solace_DeadMsgQueueEligible", false);
         message.setLongProperty("SenderTimeStamp", System.currentTimeMillis());
-        message.setIntProperty("source_system_number", sourceSystem.getSystemNumber());
+        message.setIntProperty("source_system_number", sourceSystemNumber);
         message.setStringProperty("sender_uniqueid", UUID.randomUUID().toString());
         
         producer.send(message);
