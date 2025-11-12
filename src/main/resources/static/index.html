@@ -395,6 +395,13 @@
             </div>
             <button onclick="subscribe()" class="btn-success">Subscribe</button>
             <button onclick="unsubscribe()" class="btn-danger">Unsubscribe</button>
+            
+            <div style="margin-top: 20px;">
+                <h3 style="color: #34495e; font-size: 1.1em; margin-bottom: 10px;">Active Subscriptions</h3>
+                <div id="subscriptionList" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+                    <p style="color: #999; text-align: center;">No active subscriptions</p>
+                </div>
+            </div>
         </div>
 
         <!-- Received Messages Panel -->
@@ -412,6 +419,7 @@
     <script>
         let stompClient = null;
         let isConnectedToSolace = false;
+        let activeSubscriptions = new Set();
 
         // Initialize WebSocket connection
         function initWebSocket() {
@@ -457,6 +465,83 @@
             return headers;
         }
 
+        function updateSubscriptionList() {
+            const subscriptionList = document.getElementById('subscriptionList');
+            
+            if (activeSubscriptions.size === 0) {
+                subscriptionList.innerHTML = '<p style="color: #999; text-align: center;">No active subscriptions</p>';
+                return;
+            }
+            
+            subscriptionList.innerHTML = '';
+            activeSubscriptions.forEach(sub => {
+                const item = document.createElement('div');
+                item.className = 'header-item';
+                item.style.marginBottom = '5px';
+                item.innerHTML = `
+                    <span><strong>${sub.type}:</strong> ${sub.destination}</span>
+                    <button onclick="removeSubscription('${sub.key}')" class="btn-danger" style="padding: 5px 10px; font-size: 12px;">Remove</button>
+                `;
+                subscriptionList.appendChild(item);
+            });
+        }
+
+        function removeSubscription(key) {
+            // Find and remove the subscription
+            for (let sub of activeSubscriptions) {
+                if (sub.key === key) {
+                    activeSubscriptions.delete(sub);
+                    break;
+                }
+            }
+            
+            // Parse the key to get destination and type
+            const parts = key.split(':');
+            if (parts.length === 2) {
+                const destinationType = parts[0];
+                const destination = parts[1];
+                
+                // Call unsubscribe API
+                const request = {
+                    destination: destination,
+                    destinationType: destinationType
+                };
+                
+                fetch('/api/unsubscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(request)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateSubscriptionList();
+                    } else {
+                        alert('Unsubscribe failed: ' + data.message);
+                        // Re-add subscription if unsubscribe failed
+                        activeSubscriptions.add({
+                            key: key,
+                            destination: destination,
+                            type: destinationType
+                        });
+                        updateSubscriptionList();
+                    }
+                })
+                .catch(error => {
+                    alert('Unsubscribe error: ' + error);
+                    // Re-add subscription if request failed
+                    activeSubscriptions.add({
+                        key: key,
+                        destination: destination,
+                        type: destinationType
+                    });
+                    updateSubscriptionList();
+                });
+            }
+        }
+
         function connect() {
             const config = {
                 host: document.getElementById('host').value,
@@ -496,6 +581,11 @@
             .then(data => {
                 isConnectedToSolace = false;
                 updateConnectionStatus(false);
+                
+                // Clear active subscriptions when disconnecting
+                activeSubscriptions.clear();
+                updateSubscriptionList();
+                
                 alert('Disconnected successfully!');
             })
             .catch(error => {
@@ -563,9 +653,17 @@
                 return;
             }
 
+            const destination = document.getElementById('subDestination').value.trim();
+            const destinationType = document.getElementById('subDestinationType').value;
+            
+            if (!destination) {
+                alert('Please enter a destination');
+                return;
+            }
+
             const request = {
-                destination: document.getElementById('subDestination').value,
-                destinationType: document.getElementById('subDestinationType').value
+                destination: destination,
+                destinationType: destinationType
             };
 
             fetch('/api/subscribe', {
@@ -578,6 +676,18 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    // Add to active subscriptions
+                    const key = destinationType + ':' + destination;
+                    activeSubscriptions.add({
+                        key: key,
+                        destination: destination,
+                        type: destinationType
+                    });
+                    updateSubscriptionList();
+                    
+                    // Clear the input
+                    document.getElementById('subDestination').value = '';
+                    
                     alert(data.message);
                 } else {
                     alert('Subscribe failed: ' + data.message);
@@ -594,9 +704,17 @@
                 return;
             }
 
+            const destination = document.getElementById('subDestination').value.trim();
+            const destinationType = document.getElementById('subDestinationType').value;
+            
+            if (!destination) {
+                alert('Please enter a destination');
+                return;
+            }
+
             const request = {
-                destination: document.getElementById('subDestination').value,
-                destinationType: document.getElementById('subDestinationType').value
+                destination: destination,
+                destinationType: destinationType
             };
 
             fetch('/api/unsubscribe', {
@@ -609,6 +727,19 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    // Remove from active subscriptions
+                    const key = destinationType + ':' + destination;
+                    for (let sub of activeSubscriptions) {
+                        if (sub.key === key) {
+                            activeSubscriptions.delete(sub);
+                            break;
+                        }
+                    }
+                    updateSubscriptionList();
+                    
+                    // Clear the input
+                    document.getElementById('subDestination').value = '';
+                    
                     alert(data.message);
                 } else {
                     alert('Unsubscribe failed: ' + data.message);
